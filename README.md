@@ -1,6 +1,8 @@
 # Perl-ControlLogix
 Perl Modules for reading and writing to Allen Bradley Rockwell Automation ControlLogix PLC via CIP (over eithernet)
 
+``` 
+
  
 USAGE:
 
@@ -37,4 +39,8 @@ my $sint_arr = $plc->tag(
 );
 my @data = $sint_arr->read(10);
 print $tag_name . " = '@data'\n";
+
+
+``` 
+
 
