@@ -8,13 +8,13 @@ USAGE:
 
 use ControlLogix;
 
-my $obj = ControlLogix->new( 
+my $plc = ControlLogix->new( 
    plc_ip_addr => '192.168.0.150'; 
    my_ip_addr => '192.168.0.100', # optional 
 ); 
 
 # Read/Write to a PLC DINT tag. 
-my $counter_tag = obj->tag(
+my $counter_tag = $plc->tag(
    name => 'RejectCounter',
    type => 'DINT',
 );
