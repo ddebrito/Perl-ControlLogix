@@ -231,7 +231,7 @@ sub get_session_id {
    my $self = shift;
 
    my $socket = new IO::Socket::INET (
-      PeerHost => $self->{parent}->{plc_ip_addr},  # TurboAmp Dispatch PLC
+      PeerHost => $self->{parent}->{plc_ip_addr},  #  PLC IP Address
       PeerPort => '44818',
       Proto => 'tcp',
    ) or die "ERROR in Socket Creation : $!\n";
