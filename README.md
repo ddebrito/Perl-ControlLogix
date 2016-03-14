@@ -13,7 +13,7 @@ my $plc = ControlLogix->new(
    my_ip_addr => '192.168.0.100', # optional 
 ); 
 
-# Read/Write to a PLC DINT tag. 
+# Read/Write to/from a PLC DINT tag. 
 my $counter_tag = $plc->tag(
    name => 'RejectCounter',
    type => 'DINT',
@@ -21,11 +21,11 @@ my $counter_tag = $plc->tag(
 my $reject_count = $counter_tag->read();
 $counter_tag->write(100);      # Set it to 100
 
-# Read/Write a STRING from a PLC string array
-# Note a String Tag is just a tag structure of:
+# Read/Write a STRING to/from a PLC string array
+# Note a String Tag is just a PLC tag structure of:
 #    .LEN   --> a DINT indicating number of characters in the string
 #    .DATA  --> array of SINTs (up to 82) of characters
-# We'll use methods that abstracts of reading/writing of the STRING 
+# We'll use methods that abstract the reading/writing of STRING tags 
 my $tag = 'TestString[2]';
 my $string = $plc->read_string_tag($tag);
 print "String read test for $tag result is: '$string'\n";
@@ -33,8 +33,8 @@ $plc->write_string_tag($tag,'Another two');
 $string = $plc->read_string_tag($tag);
 print "String read test for $tag result is: '$string'\n";
 
-# Read a ten SINT values from a PLC SINT array
-$tag_name = 'TempSTRING.DATA';
+# Read ten SINT values from a PLC SINT array
+$tag_name = 'TempSTRING.DATA';  # Note DATA element of a string is a SINT array
 my $sint_arr = $plc->tag(
                   {
                      name => $tag_name,
