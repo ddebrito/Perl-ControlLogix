@@ -22,6 +22,10 @@ my $reject_count = $counter_tag->read();
 $counter_tag->write(100);      # Set it to 100
 
 # Read/Write a STRING from a PLC string array
+# Note a String Tag is just a tag structure of:
+#    .LEN   --> a DINT indicating number of characters in the string
+#    .DATA  --> array of SINTs (up to 82) of characters
+# We'll use methods that abstracts of reading/writing of the STRING 
 my $tag = 'TestString[2]';
 my $string = $plc->read_string_tag($tag);
 print "String read test for $tag result is: '$string'\n";
