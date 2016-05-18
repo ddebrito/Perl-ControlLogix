@@ -13,8 +13,10 @@ my $plc = ControlLogix->new(
 
 # Read/Write to/from a PLC DINT tag. 
 my $counter_tag = $plc->tag(
-   name => 'RejectCounter',
-   type => 'DINT',
+   {
+      name => 'RejectCounter',
+      type => 'DINT',
+   }
 );
 my $reject_count = $counter_tag->read();
 $counter_tag->write(100);      # Set it to 100
@@ -41,6 +43,21 @@ my $sint_arr = $plc->tag(
 );
 my @data = $sint_arr->read(10);
 print $tag_name . " = '@data'\n";
+
+
+# Read/write a BOOL value
+$bit_tag = $plc->tag(
+                  {
+                     name => $tag_name,
+                     type => 'SINT',
+                  }
+);
+$bit_tag->write(1);      # set BOOL
+print $bit_tag->read();  # Displays '1'
+$bit_tag->write(0);      # clear BOOL
+print $bit_tag->read();  # Displays ''
+
+
 
 
 ``` 
