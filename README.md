@@ -55,7 +55,7 @@ $bit_tag = $plc->tag(
 $bit_tag->write(1);      # set BOOL
 print $bit_tag->read();  # Displays '1'
 $bit_tag->write(0);      # clear BOOL
-print $bit_tag->read();  # Displays ''
+print $bit_tag->read();  # Displays '0'
 
 
 
