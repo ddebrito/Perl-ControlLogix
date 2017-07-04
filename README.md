@@ -7,7 +7,7 @@ USAGE:
 use ControlLogix;
 
 my $plc = ControlLogix->new( 
-   plc_ip_addr => '192.168.0.150'; 
+   plc_ip_addr => '192.168.0.150', 
    my_ip_addr => '192.168.0.100', # optional 
 ); 
 
