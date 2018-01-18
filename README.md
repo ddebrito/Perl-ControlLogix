@@ -7,8 +7,7 @@ USAGE:
 use ControlLogix;
 
 my $plc = ControlLogix->new( 
-   plc_ip_addr => '192.168.0.150'; 
-   my_ip_addr => '192.168.0.100', # optional 
+   plc_ip_addr => '192.168.0.150', 
 ); 
 
 # Read/Write to/from a PLC DINT tag. 
@@ -20,6 +19,16 @@ my $counter_tag = $plc->tag(
 );
 my $reject_count = $counter_tag->read();
 $counter_tag->write(100);      # Set it to 100
+
+
+# Write/Read to a DINT tag local to Port_07 (note not a controller tag)
+my $dint_tag = $obj->tag(
+   name = 'program:port_07.a_dint_test',
+   type => 'DINT',
+}
+$dint_tag->write(-3.456);
+my $data = $dint_tag->read();
+
 
 # Read/Write a STRING to/from a PLC string array
 # Note a String Tag is just a PLC tag structure of:

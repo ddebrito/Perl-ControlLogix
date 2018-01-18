@@ -481,56 +481,36 @@ sub dint_to_num{
    my $self = shift;
    my $DINT = shift;
    my $num = '';
-   for (my $i=0; $i<4; $i++) {
-      my $chr = substr($DINT, $i, 1);
-      my $part_num = ord($chr);
-      $num += (256 ** $i) * $part_num;
-   }
+
+   $num = unpack("l<", $DINT);	  # Format of $DINT is signed 32 bit little endian
    return $num;
 }
 
 sub num_to_dint{
    my $self = shift;
    my $num = shift;
-
-   if (wantarray) {
-      my @return;
-      my $temp = $num;
-      for (my $i=0; $i<4; $i++) {
-         my $remainder = $temp % 256;
-         $return[$i] = chr($remainder);   
-         $temp = int($temp/256);
-      }
-   }
-   else {
-      my $return = '';
-      my $temp = $num;
-      for (my $i=0; $i<4; $i++) {
-         my $remainder = $temp % 256;
-         $return .= chr($remainder);   
-         $temp = int($temp/256);
-      }
-      return $return;
-   }
+                                   # Note Control Logix DINTs are transmitted in little endian
+   my $return = pack("l<", $num);  # Takes the string $num and puts it into format of signed 32 bit little endian.
+   return $return;
 }
 
 sub num_to_real{
-   # Convert a perl scalar number to AB ControlLogix REAL format
+   # Convert a Perl scalar number to AB ControlLogix REAL format
    # 4 bytes long. LSB
    # eg decimal 16 should convert to 00 00 80 41
    # (where 41800000 is 16)
 
    my $self = shift;
    my $num = shift;
-   my $single_precision_floating_point = pack("f",$num);
+   my $single_precision_floating_point;
+   $single_precision_floating_point = pack("f<", $num);     # Make sure little endian format
    my @chars = split '', $single_precision_floating_point;
    my @return;
    for (my $i=0; $i<=3; $i++) {
-   #   my $hex = unpack "H*", $chars[$i];
-   #   $return[$i] = $hex;
       my $ord = ord($chars[$i]);
       $return[$i] = $ord;
    }
+   
    return \@return;
 }
 
@@ -545,7 +525,8 @@ sub real_to_num{
    foreach my $b  (reverse @REAL) {
       $string = pack("H*",$b) . $string;
    }
-   my $num = unpack("f",$string); 
+   my $num = unpack("f<",$string);  # $string is in format of signed little endian
+	  
    return $num;
 }
 
@@ -776,8 +757,10 @@ sub write{
    }
 }
 
-
 return 1;
+
+
+
 
 __END__
 
@@ -795,16 +778,23 @@ This documentation refers to ControlLogix version 0.0.1.
    
    my $obj = ControlLogix->new(
       plc_ip_addr => '192.168.0.150';
-      my_ip_addr => '192.168.0.100', # optional
    );
 
-   # Read/Writ to a PLC DINT tag. 
+   # Read/Write to a PLC DINT controller tag. 
    my $counter_tag = obj->tag(
       name => 'Counter',
       type => 'DINT',
    );
    my $count = $counter_tag->read();
    $counter_tag->write(100);      # Set it to 100
+
+   # Write/Read to a DINT tag local to Port_07 (note not a controller tag)
+   my $dint_tag = $obj->tag(
+      name = 'program:port_07.a_dint_test',
+      type => 'DINT',
+   }
+   $dint_tag->write(-3.456);
+   my $data = $dint_tag->read();
 
    # Read/Write a STRING from a PLC string array
 	my $tag = 'TestString[2]';
@@ -907,13 +897,21 @@ PARTICULAR PURPOSE.
       my_ip_addr => '192.168.0.100', # optional
    );
 
-   # Read/Writ to a PLC DINT tag. 
+   # Read/Write to a PLC DINT tag. 
    my $counter_tag = obj->tag(
       name => 'Counter',
       type => 'DINT',
    );
    my $count = $counter_tag->read();
    $counter_tag->write(100);      # Set it to 100
+
+   # Write/Read to a DINT tag local to Port_07 (note not a controller tag)
+   my $dint_tag = $obj->tag(
+      name = 'program:port_07.a_dint_test',
+      type => 'DINT',
+   }
+   $dint_tag->write(-3.456);
+   my $data = $dint_tag->read();
 
    # Read/Write a STRING from a PLC string array
 	my $tag = 'TestString[2]';
@@ -923,7 +921,7 @@ PARTICULAR PURPOSE.
    $string = $plc->read_string_tag($tag);
    print "String read test for $tag result is: '$string'\n";
 
-   # Read a ten SINT values from a PLC SINT array
+   # Write and Read  ten SINT values to/from a PLC SINT array
    $tag_name = 'TempSTRING.DATA';
    my $sint_arr = $plc->tag(
                      {
@@ -931,6 +929,8 @@ PARTICULAR PURPOSE.
                         type => 'SINT',
                      }
    );
+   my @w_arr = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+   $sint_arr->write(\@w_arr);
    my @data = $sint_arr->read(10);
    print $tag_name . " = '@data'\n";
 
