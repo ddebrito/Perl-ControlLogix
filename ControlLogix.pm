@@ -69,15 +69,37 @@ sub tag{
    my $self = shift;
    my $args = shift;
 
-   if (exists $args->{name} && exists $args->{type}) {
-      sleep 0;
-   }
-
    my $obj = ControlLogixTag->new(
                 parent => $self,
                 name   => $args->{name}, 
                 type   => $args->{type},
    );
+
+
+   if ($args->{type} =~ m/string/i) {
+      # Note a String Tag is just a tag structure of:
+      #    .LEN   --> a DINT indicating number of characters in the string
+      #    .DATA  --> array of SINTs (up to 82) of characters
+      #
+      my $tag = $args->{name};
+      my $string_LEN_tag = $tag .'.LEN';
+      my $string_length_obj = $self->tag(
+                        {
+                           name => $string_LEN_tag,
+                           type => 'DINT',
+                        }
+      );
+      $obj->{string_length_obj} = $string_length_obj;
+    
+      my $string_DATA_tag = $tag .'.DATA';
+      my $string_data_obj = $self->tag(
+                        {
+                           name => $string_DATA_tag,
+                           type => 'SINT',
+                        }
+      );
+      $obj->{string_data_obj} = $string_data_obj;
+   }
 
    return $obj;
 }
@@ -555,100 +577,115 @@ sub read{
    my $self = shift;
    my $num_of_elements = shift;
 
-   if (!defined $num_of_elements) {
-      $num_of_elements = 1;
-   }
-   $self->{num_of_elements} = $num_of_elements;
-
    my @return;
-   $self->{op_type} = 'read';
-   $self->{session_aref} = $self->get_session_id();
-   my $socket = $self->{socket};
-   my $service_req_aref = $self->get_service_request_array();
-   my $request; 
-   foreach (my $i=0; $i < scalar @$service_req_aref; $i++) {
-      $request .= chr($service_req_aref->[$i]);
-   }
-   $socket->send($request);
-   my $data;
-   $socket->recv($data, 1024);
-   my @data = split(//, $data);
+   if ($self->{type} =~ m/string/i) {
+      my $string_length_obj = $self->{string_length_obj};
+      my $string_length = $string_length_obj->read();
 
-   # Check the if request returned an error.
-   my $return_request_code = $data[45];   # Need to Change
-   if (ord($return_request_code) != 0) {
-      # Report the Error
-      print STDERR "Read request error $return_request_code\n";
-      if ($return_request_code eq 0x04 ) {
-         print STDERR "Syntax error detected decoding the Request Path.\n";
-      }
-      elsif ($return_request_code eq 0x05 ) {
-         print STDERR "Request Path destination unkown.\n";
-      }
-      elsif ($return_request_code eq 0x06 ) {
-         print STDERR "Insufficient packet space.\n";
-      }
-      elsif ($return_request_code eq 0x13 ) {
-         print STDERR "Insufficient Request Data: Data too short for expected parameters.\n";
-      }
-      elsif ($return_request_code eq 0x26 ) {
-         print STDERR "Request Path received was shorter or longer than expected.\n";
-      }
-      elsif ($return_request_code eq 0xff ) {
-         print STDERR "General Error.\n";
-      }
+      my $string_data_obj = $self->{string_data_obj};
+      my @sints = $string_data_obj->read($string_length);
+      my @chars = map(chr, @sints);
+      my $string = join '',@chars;
+      return $string;
    }
    else {
-      # Successful read from PLC
-      # PLC values starts at $data[46];
-      my $data_start_index = 46;
-      if ($self->{type} eq 'DINT') {
-         for (my $i=0; $i<$num_of_elements; $i++){
-            my $index = $data_start_index + ($i * 4);
-            my $temp = $data[$index];
-            $temp .=  $data[$index + 1];
-            $temp .=  $data[$index + 2];
-            $temp .=  $data[$index + 3];
-            $return[$i] = $self->dint_to_num($temp);
-         }
-      }  
-      elsif ($self->{type} eq 'SINT') {
-         for (my $i=0; $i<$num_of_elements; $i++){
-            my $index = $data_start_index + ($i * 1);
-            my $temp = $data[$index];
-            $return[$i] = $self->sint_to_num($temp);
-         }
+      # Not a string type
+
+      if (!defined $num_of_elements) {
+         $num_of_elements = 1;
       }
-      elsif ($self->{type} eq 'BOOL') {
-         # BOOL data in represented in the PLC by one byte. 00 = false,   FF = true
-         for (my $i=0; $i<$num_of_elements; $i++){
-            my $index = $data_start_index + ($i * 1);
-            my $temp = ord($data[$index]);
-   			if ($temp == 0) {
-	   		   $return[$i] = 0;
-		   	} else {
-               $return[$i] = 1;
-			   }
-         }
+      $self->{num_of_elements} = $num_of_elements;
+
+      $self->{op_type} = 'read';
+      $self->{session_aref} = $self->get_session_id();
+      my $socket = $self->{socket};
+      my $service_req_aref = $self->get_service_request_array();
+      my $request; 
+      foreach (my $i=0; $i < scalar @$service_req_aref; $i++) {
+         $request .= chr($service_req_aref->[$i]);
       }
-      elsif ($self->{type} eq 'REAL') {
-         for (my $i=0; $i<$num_of_elements; $i++){
-            my $index = $data_start_index + ($i * 4);
-            my @arr;
-            $arr[0] = sprintf "%02x", ord($data[$index]); 
-            $arr[1] = sprintf "%02x", ord($data[$index+1]);
-            $arr[2] = sprintf "%02x", ord($data[$index+2]);
-            $arr[3] = sprintf "%02x", ord($data[$index+3]);
-            
-            my $num = $self->real_to_num( @arr );
-            $return[$i] = $num;
+      $socket->send($request);
+      my $data;
+      $socket->recv($data, 1024);
+      my @data = split(//, $data);
+
+      # Check the if request returned an error.
+      my $return_request_code = $data[45];   # Need to Change
+      if (ord($return_request_code) != 0) {
+         # Report the Error
+         print STDERR "Read request error $return_request_code\n";
+         if ($return_request_code eq 0x04 ) {
+            print STDERR "Syntax error detected decoding the Request Path.\n";
+         }
+         elsif ($return_request_code eq 0x05 ) {
+            print STDERR "Request Path destination unkown.\n";
+         }
+         elsif ($return_request_code eq 0x06 ) {
+            print STDERR "Insufficient packet space.\n";
+         }
+         elsif ($return_request_code eq 0x13 ) {
+            print STDERR "Insufficient Request Data: Data too short for expected parameters.\n";
+         }
+         elsif ($return_request_code eq 0x26 ) {
+            print STDERR "Request Path received was shorter or longer than expected.\n";
+         }
+         elsif ($return_request_code eq 0xff ) {
+            print STDERR "General Error.\n";
          }
       }
       else {
-         my $type = $self->{type};
-         print STDERR "Undefined data type '$type' specified\n";
+         # Successful read from PLC
+         # PLC values starts at $data[46];
+         my $data_start_index = 46;
+         if ($self->{type} eq 'DINT') {
+            for (my $i=0; $i<$num_of_elements; $i++){
+               my $index = $data_start_index + ($i * 4);
+               my $temp = $data[$index];
+               $temp .=  $data[$index + 1];
+               $temp .=  $data[$index + 2];
+               $temp .=  $data[$index + 3];
+               $return[$i] = $self->dint_to_num($temp);
+            }
+         }  
+         elsif ($self->{type} eq 'SINT') {
+            for (my $i=0; $i<$num_of_elements; $i++){
+               my $index = $data_start_index + ($i * 1);
+               my $temp = $data[$index];
+               $return[$i] = $self->sint_to_num($temp);
+            }
+         }
+         elsif ($self->{type} eq 'BOOL') {
+            # BOOL data in represented in the PLC by one byte. 00 = false,   FF = true
+            for (my $i=0; $i<$num_of_elements; $i++){
+               my $index = $data_start_index + ($i * 1);
+               my $temp = ord($data[$index]);
+               if ($temp == 0) {
+                  $return[$i] = 0;
+               } else {
+                  $return[$i] = 1;
+               }
+            }
+         }
+         elsif ($self->{type} eq 'REAL') {
+            for (my $i=0; $i<$num_of_elements; $i++){
+               my $index = $data_start_index + ($i * 4);
+               my @arr;
+               $arr[0] = sprintf "%02x", ord($data[$index]); 
+               $arr[1] = sprintf "%02x", ord($data[$index+1]);
+               $arr[2] = sprintf "%02x", ord($data[$index+2]);
+               $arr[3] = sprintf "%02x", ord($data[$index+3]);
+               
+               my $num = $self->real_to_num( @arr );
+               $return[$i] = $num;
+            }
+         }
+         else {
+            my $type = $self->{type};
+            print STDERR "Undefined data type '$type' specified\n";
+         }
       }
    }
+   
    # $DB::single = 1;
    if (wantarray()) {
       return @return;
@@ -666,57 +703,74 @@ sub write{
    $self->{data} = '';
    $self->{write_data} = [];
    my $num_of_elements = 1; # default
-   if (ref($data) eq 'ARRAY') {
-      $self->{num_of_elements} = scalar @$data; 
-      for (my $i=0; $i< scalar @$data; $i++) {
+
+   if ($self->{type} =~ m/string/i) {
+      my $string_length_obj = $self->{string_length_obj};
+      my $string_data_obj = $self->{string_data_obj};
+      # Note a String Tag is just a tag structure of:
+      #    .LEN   --> a DINT indicating number of characters in the string
+      #    .DATA  --> array of SINTs (up to 82) of characters
+      #
+      my $length = length $data;
+      $string_length_obj->write($length);
+    
+      my @chars = split '', $data;
+      my @sints = map(ord, @chars);
+      $string_data_obj->write(\@sints);
+   }
+   else {
+
+      if (ref($data) eq 'ARRAY') {
+         $self->{num_of_elements} = scalar @$data; 
+         for (my $i=0; $i< scalar @$data; $i++) {
+            if ($self->{type} eq 'BOOL') {
+               push @{$self->{write_data}}, $data->[$i];
+            }
+            if ($self->{type} eq 'SINT') {
+               push @{$self->{write_data}}, $data->[$i];
+            }
+            elsif($self->{type} eq 'DINT') {
+               my $val_str = $self->num_to_dint($data->[$i]);
+               foreach my $c (split //, $val_str) {
+                  push @{$self->{write_data}}, ord($c)
+               }
+            }
+            elsif($self->{type} eq 'REAL') {
+               push @{$self->{write_data}}, @{$self->num_to_real($data->[$i])};
+            }
+         }
+        if ((scalar @{$self->{write_data}}) % 2) {
+         # odd amount of data, so pad to make even
+         push @{$self->{write_data}}, 0x00;
+        }
+      }
+      else {   # Not array
          if ($self->{type} eq 'BOOL') {
-            push @{$self->{write_data}}, $data->[$i];
+            if ($data) {
+               push @{$self->{write_data}}, 0xff;
+               push @{$self->{write_data}}, 0xff;    # Pad w/ an extra character to make buffer even
+            }
+            else {
+               push @{$self->{write_data}}, 0x00;
+               push @{$self->{write_data}}, 0x00;    # Pad w/ an extra character to make buffer even
+            }
          }
-         if ($self->{type} eq 'SINT') {
-            push @{$self->{write_data}}, $data->[$i];
+         elsif ($self->{type} eq 'SINT') {
+            my $val = $data % 256;
+            push @{$self->{write_data}}, $val;
+            push @{$self->{write_data}}, 0x00;    # Pad w/ an extra character to make buffer even
          }
-         elsif($self->{type} eq 'DINT') {
-            my $val_str = $self->num_to_dint($data->[$i]);
+         elsif ($self->{type} eq 'DINT') {
+            my $val_str = $self->num_to_dint($data);
             foreach my $c (split //, $val_str) {
                push @{$self->{write_data}}, ord($c)
             }
          }
-         elsif($self->{type} eq 'REAL') {
-            push @{$self->{write_data}}, @{$self->num_to_real($data->[$i])};
+         elsif ($self->{type} eq 'REAL') {
+            push @{$self->{write_data}}, @{$self->num_to_real($data)};
          }
       }
-	  if ((scalar @{$self->{write_data}}) % 2) {
-		# odd amount of data, so pad to make even
-		push @{$self->{write_data}}, 0x00;
-	  }
-   }
-   else {   # Not array
-      if ($self->{type} eq 'BOOL') {
-         if ($data) {
-            push @{$self->{write_data}}, 0xff;
-            push @{$self->{write_data}}, 0xff;    # Pad w/ an extra character to make buffer even
-         }
-         else {
-            push @{$self->{write_data}}, 0x00;
-            push @{$self->{write_data}}, 0x00;    # Pad w/ an extra character to make buffer even
-         }
-      }
-      elsif ($self->{type} eq 'SINT') {
-         my $val = $data % 256;
-         push @{$self->{write_data}}, $val;
-         push @{$self->{write_data}}, 0x00;    # Pad w/ an extra character to make buffer even
-      }
-      elsif ($self->{type} eq 'DINT') {
-         my $val_str = $self->num_to_dint($data);
-         foreach my $c (split //, $val_str) {
-            push @{$self->{write_data}}, ord($c)
-         }
-      }
-      elsif ($self->{type} eq 'REAL') {
-         push @{$self->{write_data}}, @{$self->num_to_real($data)};
-      }
-   }
-  
+   }     
 
    my @return;
    $self->{session_aref} = $self->get_session_id();
