@@ -1,5 +1,7 @@
 # Perl-ControlLogix
-Perl Modules for reading and writing to Allen Bradley Rockwell Automation ControlLogix PLC via CIP (over eithernet)
+Perl Module for reading and writing to Allen Bradley Rockwell Automation ControlLogix PLC
+via CIP (over ethernet, aka EtherNetIP). Module is pure Perl, so
+no compiling necessary.
 
 ``` 
 USAGE:
@@ -30,17 +32,23 @@ $dint_tag->write(-3.456);
 my $data = $dint_tag->read();
 
 
-# Read/Write a STRING to/from a PLC string array
+# Read/Write a STRING tag
 # Note a String Tag is just a PLC tag structure of:
 #    .LEN   --> a DINT indicating number of characters in the string
 #    .DATA  --> array of SINTs (up to 82) of characters
-# We'll use methods that abstract the reading/writing of STRING tags 
-my $tag = 'TestString[2]';
-my $string = $plc->read_string_tag($tag);
-print "String read test for $tag result is: '$string'\n";
-$plc->write_string_tag($tag,'Another two');
-$string = $plc->read_string_tag($tag);
-print "String read test for $tag result is: '$string'\n";
+# The read/write methods normalize writing to STRING tags
+# by taking care of the details of reading/writing to .LEN and
+# .DATA structure.
+my $string_tag = $obj->tag(
+   name = 'program:port_03.a_string_test',
+   type => 'STRING',
+}
+my $string = $string_tag->read();
+print "String tag was: '$string'\n";
+$string_tag->write(scalar localtime);
+$string = $string_tag->read();
+print "String tag is now: '$string'\n";
+
 
 # Read ten SINT values from a PLC SINT array
 $tag_name = 'TempSTRING.DATA';  # Note DATA element of a string is a SINT array
@@ -65,8 +73,6 @@ $bit_tag->write(1);      # set BOOL
 print $bit_tag->read();  # Displays '1'
 $bit_tag->write(0);      # clear BOOL
 print $bit_tag->read();  # Displays '0'
-
-
 
 
 ``` 
