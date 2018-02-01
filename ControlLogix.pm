@@ -319,6 +319,7 @@ sub get_service_request_array{
             $ten_exp++;
          }
          push @arr, $dec_val;
+		 @tag_array_pointer_chars = ();  # empty temp array
          $bytes_in_path++;
 	   }
       elsif ($waiting_for_array_index) {
