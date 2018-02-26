@@ -290,6 +290,9 @@ sub get_service_request_array{
    if ($self->{op_type} eq 'write') {
       $arr[50] = 0x4d; # Write Tag Service Request
    }
+   elsif ($self->{op_type} eq 'read_modify_write') {
+      $arr[50] = 0x4e; # Read Modify Write Tag Service Request
+   }
    
    $arr[51] = 0x00;  # Placeholder for Request Path (tag name) size in words (null padding required to make complete words)
    $message_request_size += 2;
@@ -319,10 +322,10 @@ sub get_service_request_array{
             $ten_exp++;
          }
          push @arr, $dec_val;
-		 @tag_array_pointer_chars = ();  # empty temp array
+		   @tag_array_pointer_chars = ();  # empty temp array
          $bytes_in_path++;
 	   }
-      elsif ($waiting_for_array_index) {
+       elsif ($waiting_for_array_index) {
 		   unshift @tag_array_pointer_chars, $c; 
 	   }
 	   elsif ($c eq '.') {
@@ -506,11 +509,28 @@ sub lint_to_num{
    $num = unpack("q<", $LINT);	  # Format of $LINT is signed 64 bit little endian
    return $num;
 }
+
 sub num_to_dint{
    my $self = shift;
    my $num = shift;
                                    # Note Control Logix DINTs are transmitted in little endian
    my $return = pack("l<", $num);  # Takes the string $num and puts it into format of signed 32 bit little endian.
+   return $return;
+}
+
+sub num_to_int{
+   my $self = shift;
+   my $num = shift;
+                                   # Note Control Logix DINTs are transmitted in little endian
+   my $return = pack("s<", $num);  # Takes the string $num and puts it into format of signed 16 bit little endian.
+   return $return;
+}
+
+sub num_to_lint{
+   my $self = shift;
+   my $num = shift;
+                                   # Note Control Logix DINTs are transmitted in little endian
+   my $return = pack("q<", $num);  # Takes the string $num and puts it into format of signed 32 bit little endian.
    return $return;
 }
 
@@ -649,7 +669,7 @@ sub read{
       }
       elsif ($self->{type} eq 'LINT') {
          for (my $i=0; $i<$num_of_elements; $i++){
-            my $index = $data_start_index + ($i * 48);
+            my $index = $data_start_index + ($i * 8);
             my $temp = $data[$index];
             $temp .=  $data[$index + 1];
             $temp .=  $data[$index + 2];
@@ -700,6 +720,33 @@ sub read{
    }
 }
 
+sub set_bit{
+   my $self = shift;
+   my $data = shift;
+
+   $self->{op_type} = 'read_modify_write';
+   $self->{data} = '';
+   
+   if($self->{type} eq 'SINT') {
+      $self->{num_of_elements} = 1;
+   }
+   elsif($self->{type} eq 'INT') {
+      $self->{num_of_elements} = 2;
+   }
+   elsif($self->{type} eq 'DINT') {
+      $self->{num_of_elements} = 4;
+   }
+   elsif($self->{type} eq 'LINT') {
+      $self->{num_of_elements} = 8;
+   }
+   else {
+      # Error
+      print "Trying to set bit to type: '" . $self->{type} . "'";
+   }
+
+
+}
+
 sub write{
    my $self = shift;
    my $data = shift;
@@ -719,6 +766,18 @@ sub write{
          }
          elsif($self->{type} eq 'DINT') {
             my $val_str = $self->num_to_dint($data->[$i]);
+            foreach my $c (split //, $val_str) {
+               push @{$self->{write_data}}, ord($c)
+            }
+         }
+         elsif($self->{type} eq 'INT') {
+            my $val_str = $self->num_to_int($data->[$i]);
+            foreach my $c (split //, $val_str) {
+               push @{$self->{write_data}}, ord($c)
+            }
+         }
+         elsif($self->{type} eq 'LINT') {
+            my $val_str = $self->num_to_lint($data->[$i]);
             foreach my $c (split //, $val_str) {
                push @{$self->{write_data}}, ord($c)
             }
@@ -750,6 +809,18 @@ sub write{
       }
       elsif ($self->{type} eq 'DINT') {
          my $val_str = $self->num_to_dint($data);
+         foreach my $c (split //, $val_str) {
+            push @{$self->{write_data}}, ord($c)
+         }
+      }
+      elsif($self->{type} eq 'INT') {
+         my $val_str = $self->num_to_int($data);
+         foreach my $c (split //, $val_str) {
+            push @{$self->{write_data}}, ord($c)
+         }
+      }
+      elsif($self->{type} eq 'LINT') {
+         my $val_str = $self->num_to_lint($data);
          foreach my $c (split //, $val_str) {
             push @{$self->{write_data}}, ord($c)
          }
