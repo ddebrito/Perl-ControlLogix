@@ -432,7 +432,14 @@ sub get_service_request_array{
    push @arr, 0x00;  
 
    push @arr, 0x01; # route path (2) (0x01 = backplane)
-   push @arr, 0x00; # (0x00 = processor slot)
+   # Define which backplane slot the PLC processor is in.
+   if (exists $self->{parent}->{processor_slot}) {
+      my $c = pack "c", $self->{parent}->{processor_slot};
+      push @arr, $c;   # processor slot position in backplane/chassis
+   }
+   else {
+      push @arr, 0x00; # (0x00 = Default processor slot position)
+   }
 
    my $size_of_arr = scalar @arr;
    $arr[2] = $size_of_arr - 24 ;
@@ -891,7 +898,7 @@ This documentation refers to ControlLogix version 0.0.1.
    
    my $obj = ControlLogix->new(
       plc_ip_addr => '192.168.0.150';
-      my_ip_addr => '192.168.0.100', # optional
+      # processor_slot => 0,  # optional. Default is 0.
    );
 
    # Read/Writ to a PLC DINT tag. 
@@ -1000,7 +1007,7 @@ PARTICULAR PURPOSE.
    
    my $obj = ControlLogix->new(
       plc_ip_addr => '192.168.0.150';
-      my_ip_addr => '192.168.0.100', # optional
+      # processor_slot => 0,  # optional. Default is 0.
    );
 
    # Read/Writ to a PLC DINT tag. 

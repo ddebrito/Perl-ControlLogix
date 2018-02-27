@@ -10,6 +10,7 @@ use ControlLogix;
 
 my $plc = ControlLogix->new( 
    plc_ip_addr => '192.168.0.150', 
+   # processor_slot => 0,  # optional. Default is 0.
 ); 
 
 # Read/Write to/from a PLC DINT tag. 
