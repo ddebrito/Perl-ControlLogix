@@ -293,7 +293,9 @@ sub get_service_request_array{
    elsif ($self->{op_type} eq 'read_modify_write') {
       $arr[50] = 0x4e; # Read Modify Write Tag Service Request
    }
-   
+   elsif ($self->{op_type} eq 'read_tag_fragmented') {
+      $arr[50] = 0x52;
+   }
    $arr[51] = 0x00;  # Placeholder for Request Path (tag name) size in words (null padding required to make complete words)
    $message_request_size += 2;
    my $bytes_in_path = 0;
@@ -408,14 +410,15 @@ sub get_service_request_array{
       }
       $message_request_size += 2;
    }
+   
    # number of PLC elements to read/write (9)
    my $num_of_elements = 1;
-   #$DB::single = 1;
-   if ($self->{num_of_elements}) {
+   # $DB::single = 1;
+   if (exists $self->{num_of_elements}) {
       $num_of_elements = $self->{num_of_elements};
    }
-   push @arr, $num_of_elements;
-   push @arr, 0x00;
+   push @arr, $num_of_elements % 256;
+   push @arr, int($num_of_elements/256);
    $message_request_size += 2;
 
    if ($self->{op_type} eq 'write') {
@@ -424,7 +427,23 @@ sub get_service_request_array{
          $message_request_size += 1;
       }
    }
-
+   elsif ($self->{op_type} eq 'read_tag_fragmented') {
+      # Define 4 bytes which indicate position of fragament 
+      # -- how many elements in to start reading.
+      my $fragment_position = 0;
+      if (exists $self->{fragment_position}) {
+         $fragment_position = $self->{fragment_position};
+      }
+      push @arr, $fragment_position % 256;
+      my $temp = int($fragment_position / 256);
+      push @arr, $fragment_position % 256;
+      my $temp = int($fragment_position / 256);
+      push @arr, $fragment_position % 256;
+      my $temp = int($fragment_position / 256);
+      push @arr, $fragment_position % 256;
+      my $temp = int($fragment_position / 256);
+      $message_request_size += 4;
+   }
    $arr[48] = $message_request_size;
 
    # Path size in words (2)
@@ -622,30 +641,31 @@ sub read{
    my @data = split(//, $data);
 
    # Check the if request returned an error.
-   my $return_request_code = $data[45];   # Need to Change
+   my $return_request_code = $data[42];   # Need to Change
    if (ord($return_request_code) != 0) {
       # Report the Error
-      print STDERR "Read request error $return_request_code\n";
-      if ($return_request_code eq 0x04 ) {
+      print STDERR "Read request error: " . ord($return_request_code) ."\n";
+      if (ord($return_request_code) == 4 ) {
          print STDERR "Syntax error detected decoding the Request Path.\n";
       }
-      elsif ($return_request_code eq 0x05 ) {
+      elsif ($return_request_code == 0x05 ) {
          print STDERR "Request Path destination unkown.\n";
       }
-      elsif ($return_request_code eq 0x06 ) {
+      elsif (ord($return_request_code) == 6 ) {
+         # Note data is still returned, just not all of it.
          print STDERR "Insufficient packet space.\n";
       }
-      elsif ($return_request_code eq 0x13 ) {
+      elsif ($return_request_code == 0x13 ) {
          print STDERR "Insufficient Request Data: Data too short for expected parameters.\n";
       }
-      elsif ($return_request_code eq 0x26 ) {
+      elsif ($return_request_code == 0x26 ) {
          print STDERR "Request Path received was shorter or longer than expected.\n";
       }
-      elsif ($return_request_code eq 0xff ) {
+      elsif ($return_request_code == 0xff ) {
          print STDERR "General Error.\n";
       }
    }
-   else {
+   if ((ord($return_request_code) == 0) || (ord($return_request_code) ==6)) {
       # Successful read from PLC
       # PLC values starts at $data[46];
       my $data_start_index = 46;
