@@ -475,7 +475,19 @@ sub get_session_id {
       PeerHost => $self->{parent}->{plc_ip_addr},  #  PLC IP Address
       PeerPort => '44818',
       Proto => 'tcp',
-   ) or die "ERROR in Socket Creation : $!\n";
+   );
+   if (!defined $socket) {
+      my $ip = $self->{parent}->{plc_ip_addr};
+      if (! $self->{socket_error}) {
+         # Just print the socket error once.
+         print STDERR "ERROR in Socket Creation to '$ip' : $!\n";
+      }
+      $self->{socket_error} = 1;
+      return undef;
+   }
+   else {
+      $self->{socket_error} = 0;
+   }
    binmode $socket, ":raw";
    $self->{socket} = $socket;
 
@@ -629,6 +641,10 @@ sub read{
    my @return;
    $self->{op_type} = 'read';
    $self->{session_aref} = $self->get_session_id();
+   if (!defined $self->{session_aref}) {
+      # Issues with soccket connection.
+      return undef;
+   }
    my $socket = $self->{socket};
    my $service_req_aref = $self->get_service_request_array();
    my $request; 
@@ -641,12 +657,13 @@ sub read{
    my @data = split(//, $data);
 
    # Check the if request returned an error.
-   my $return_request_code = $data[42];   # Need to Change
+   my $return_request_code = $data[42];   # 
    if (ord($return_request_code) != 0) {
       # Report the Error
       print STDERR "Read request error: " . ord($return_request_code) ."\n";
       if (ord($return_request_code) == 4 ) {
          print STDERR "Syntax error detected decoding the Request Path.\n";
+         print STDERR "  Path:", $self->{name}, "\n";
       }
       elsif ($return_request_code == 0x05 ) {
          print STDERR "Request Path destination unkown.\n";
@@ -860,6 +877,10 @@ sub write{
 
    my @return;
    $self->{session_aref} = $self->get_session_id();
+   if (!defined $self->{session_aref}) {
+      # Issues with soccket connection.
+      return undef;
+   }
    my $socket = $self->{socket};
    my $service_req_aref = $self->get_service_request_array();
    my $request; 
