@@ -8,18 +8,18 @@ USAGE:
 
 use ControlLogix;
 
+# Create an object representing the PLC
 my $plc = ControlLogix->new( 
    plc_ip_addr => '192.168.0.150', 
    # processor_slot => 0,  # optional. Default is 0.
-); 
+   ); 
 
-# Read/Write to/from a PLC DINT tag. 
+# Create a tag object that's part of the PLC object.
 my $counter_tag = $plc->tag(
-   {
       name => 'RejectCounter',
       type => 'DINT',
-   }
-);
+   );
+# Read/Write to/from a PLC via the DINT tag object. 
 my $reject_count = $counter_tag->read();
 $counter_tag->write(100);      # Set it to 100
 
@@ -28,7 +28,7 @@ $counter_tag->write(100);      # Set it to 100
 my $dint_tag = $obj->tag(
    name = 'program:port_07.a_dint_test',
    type => 'DINT',
-}
+   );
 $dint_tag->write(-3.456);
 my $data = $dint_tag->read();
 
@@ -43,7 +43,7 @@ my $data = $dint_tag->read();
 my $string_tag = $obj->tag(
    name = 'program:port_03.a_string_test',
    type => 'STRING',
-}
+   );
 my $string = $string_tag->read();
 print "String tag was: '$string'\n";
 $string_tag->write(scalar localtime);
@@ -54,22 +54,18 @@ print "String tag is now: '$string'\n";
 # Read ten SINT values from a PLC SINT array
 $tag_name = 'TempSTRING.DATA';  # Note DATA element of a string is a SINT array
 my $sint_arr = $plc->tag(
-                  {
                      name => $tag_name,
                      type => 'SINT',
-                  }
-);
+   );
 my @data = $sint_arr->read(10);
 print $tag_name . " = '@data'\n";
 
 
 # Read/write a BOOL value
 $bit_tag = $plc->tag(
-                  {
                      name => $tag_name,
-                     type => 'SINT',
-                  }
-);
+                     type => 'BOOL',
+   );
 $bit_tag->write(1);      # set BOOL
 print $bit_tag->read();  # Displays '1'
 $bit_tag->write(0);      # clear BOOL

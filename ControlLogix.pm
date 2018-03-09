@@ -67,7 +67,16 @@ sub load_session_array {
 
 sub tag{
    my $self = shift;
-   my $args = shift;
+
+   my $args;
+   # Allow args to be passed in via ref or key/vals
+   if (ref($_[0]) eq 'HASH') {
+      $args = shift;
+   }
+   else {
+      my %args = @_;
+      $args = \%args;
+   }
 
    if (exists $args->{name} && exists $args->{type}) {
       sleep 0;
@@ -681,6 +690,9 @@ sub read{
       elsif ($return_request_code == 0xff ) {
          print STDERR "General Error.\n";
       }
+      else {
+         print STDERR "Unknown Error while reading\n";
+      }
    }
    if ((ord($return_request_code) == 0) || (ord($return_request_code) ==6)) {
       # Successful read from PLC
@@ -961,10 +973,8 @@ This documentation refers to ControlLogix version 0.0.1.
    # Read a ten SINT values from a PLC SINT array
    $tag_name = 'TempSTRING.DATA';
    my $sint_arr = $plc->tag(
-                     {
                         name => $tag_name,
                         type => 'SINT',
-                     }
    );
    my @data = $sint_arr->read(10);
    print $tag_name . " = '@data'\n";
@@ -983,26 +993,28 @@ This documentation refers to ControlLogix version 0.0.1.
 			plc_ip_addr => '192.0.0.200',
 		);
   
-
-   read_string_tag - easier way to read a string tag 
-      rather than using low level queries to tag members.
-		my $string = $plc->read_string_tag('TempSTRING');
-		  
    tag - creates a tag object for reading and writing
 		my $dint = $plc->tag(
-            {
                 name => 'test_DINT',
                 type => 'DINT',
-            }
         );
       my $data = $dint->read();     # Read one DINT from a DINT or DINT array tag.
 		my @data = $dint->read(4);    # Read four DINTs from a DINT array tag.
       $dint->write(42);             # Write 42 to DINT tag called 'test_DINT'. 
    
-   write_string_tag - easier way to write a string tag 
-      rather than using low level queries to tag members.
-		my $string = $plc->write_string_tag('TempSTRING','Killroy was here');
-   
+   read($num_of_items);
+      method only for tag objects.
+
+      $num_of_items is optional. Defaults to 1.
+      my $string_tag = $plc->tag(name=>'test_STRING', type=> 'STRING');
+      my $val = $string_tag->read();
+      $string_tag->write('Howdy!');
+      $val = $string_tag->read();
+      
+      $dint_arr_tag = $plc->tag(name => 'test_dint_arr', type => 'DINT');
+      my @vals = $dint_arr_tag->read(5);  # read 5 values
+      my $val = $dint_arr_tag->read();    # read 1 value
+   write
    
 =head1 DEPENDENCIES
 
@@ -1070,20 +1082,16 @@ PARTICULAR PURPOSE.
    # Read a ten SINT values from a PLC SINT array
    $tag_name = 'TempSTRING.DATA';
    my $sint_arr = $plc->tag(
-                     {
                         name => $tag_name,
                         type => 'SINT',
-                     }
    );
    my @data = $sint_arr->read(10);
    print $tag_name . " = '@data'\n";
 
    
    my $real_arr_tag = $plc->tag(
-                     {
                         name => 'test_REAL_arr[1]',
                         type => 'REAL',
-                     }
    );
    $real_arr_tag->write(16);
    my $data = $real_arr_tag->read();  # data is 16
